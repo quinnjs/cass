@@ -1,0 +1,35 @@
+{
+  "name": "cass",
+  "version": "0.0.0",
+  "description": "It rhymes with jax-rs",
+  "main": "index.js",
+  "scripts": {
+    "test": "tape test/*"
+  },
+  "keywords": [
+    "quinn",
+    "rest",
+    "server"
+  ],
+  "author": "Jan Krems <jan.krems@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "concat-stream": "^1.4.8",
+    "quinn": "^3.2.0",
+    "tape": "^4.0.0"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "quinn": "^3.2.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/quinnjs/cass.git"
+  },
+  "bugs": {
+    "url": "https://github.com/quinnjs/cass/issues"
+  },
+  "homepage": "https://github.com/quinnjs/cass#readme"
+}
