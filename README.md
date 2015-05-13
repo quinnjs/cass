@@ -28,7 +28,7 @@ import { createServer } from 'http';
 
 import cass from 'cass';
 import { createRouter, GET, PUT } from 'wegweiser';
-import concat from 'concat-stream-promise';
+import parsedBody from 'parsed-body';
 import { createApp } from 'quinn';
 
 import db from './db'; // e.g. require('knex')(options)
@@ -39,7 +39,7 @@ const routes = [
   GET('/todos')(req => todos.select()),
   GET('/todos/:id')((req, id) => todos.first().where({ id })),
   PUT('/todos/:id')(async (req, id) => {
-    const { done } = await req.pipe(concat()).then(JSON.parse);
+    const { done } = await parsedBody(req);
     if (0 === await todos.where({ id }).update({ done })) {
       return; // item not found
     }
