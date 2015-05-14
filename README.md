@@ -2,14 +2,16 @@
 
 > It rhymes with jax-rs.
 
-A convenience layer to build JSON APIs using [`Quinn`](https://github.com/quinnjs/quinn).
+A convenience layer to build JSON APIs using
+[`Quinn`](https://github.com/quinnjs/quinn).
 
 ```js
 const cass = require('cass'),
-      WebError = cass.WebError;
+      // HTTPError is whitelisted for providing status codes
+      HTTPError = require('node-http-error');
 
-const handler = cass()(req => {
-  if (req.method !== 'GET') throw new WebError(405);
+const handler = cass(req => {
+  if (req.method !== 'GET') throw new HTTPError(405);
 
   return {
     my: {
@@ -51,6 +53,6 @@ const routes = [
 // router -> JSON responses
 // JSON responses -> node style request listener
 // node style request listener -> node http server
-createServer(createApp(cass()(createRouter(routes))))
+createServer(createApp(cass(createRouter(routes))))
   .listen(3000);
 ```

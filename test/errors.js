@@ -2,9 +2,9 @@
 
 const test = require('tape');
 const respond = require('quinn/respond');
+const HTTPError = require('node-http-error');
 
-const cass = require('../'),
-      WebError = cass.WebError;
+const cass = require('../');
 
 const testQuinnHandler = require('./test-quinn-handler');
 
@@ -24,7 +24,7 @@ test('throw error', function(t) {
     t.end();
   }
 
-  testQuinnHandler(cass()(throwError))
+  testQuinnHandler(cass(throwError))
     .then(verify, t.end);
 });
 
@@ -32,7 +32,7 @@ test('throw web error', function(t) {
   t.plan(4);
 
   function throwError() {
-    throw new WebError('Invalid thing', 422);
+    throw new HTTPError(422, 'Invalid thing');
   }
 
   function verify(res) {
@@ -44,7 +44,7 @@ test('throw web error', function(t) {
     t.end();
   }
 
-  testQuinnHandler(cass()(throwError))
+  testQuinnHandler(cass(throwError))
     .then(verify, t.end);
 });
 
@@ -70,6 +70,6 @@ test('custom error handler', function(t) {
   }
 
   const req = { url: '/foo', method: 'GET' };
-  testQuinnHandler(cass({ errorHandler: customErrorHandler })(throwError), req)
+  testQuinnHandler(cass({ errorHandler: customErrorHandler }, throwError), req)
     .then(verify, t.end);
 });

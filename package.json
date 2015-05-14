@@ -15,7 +15,7 @@
   "license": "MIT",
   "devDependencies": {
     "concat-stream": "^1.4.8",
-    "quinn": "^3.2.0",
+    "node-http-error": "^0.2.0",
     "tape": "^4.0.0"
   },
   "directories": {

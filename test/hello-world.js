@@ -20,6 +20,6 @@ test('render hello world', function(t) {
     t.end();
   }
 
-  testQuinnHandler(cass()(renderHelloWorld))
+  testQuinnHandler(cass(renderHelloWorld))
     .then(verify, t.end);
 });
