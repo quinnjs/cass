@@ -14,8 +14,8 @@
   "author": "Jan Krems <jan.krems@gmail.com>",
   "license": "MIT",
   "devDependencies": {
+    "boom": "^2.7.1",
     "concat-stream": "^1.4.8",
-    "node-http-error": "^0.2.0",
     "tape": "^4.0.0"
   },
   "directories": {

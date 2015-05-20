@@ -7,11 +7,11 @@ A convenience layer to build JSON APIs using
 
 ```js
 const cass = require('cass'),
-      // HTTPError is whitelisted for providing status codes
-      HTTPError = require('node-http-error');
+      // `boom` is whitelisted for providing status codes
+      Boom = require('boom');
 
 const handler = cass(req => {
-  if (req.method !== 'GET') throw new HTTPError(405);
+  if (req.method !== 'GET') throw Boom.create(405);
 
   return {
     my: {

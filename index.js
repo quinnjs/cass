@@ -10,17 +10,28 @@ function ptry(f, self, args) {
 
 function createErrorHandler(serialize) {
   function errorHandler(req, error) {
-    let message = 'Something went wrong',
-        statusCode = 500;
+    let body,
+        statusCode = 500,
+        headers = {};
 
-    if (error.name === 'HTTPError' || error.name === 'WebError') {
-      message = error.message;
-      statusCode = error.statusCode || error.status || 500;
+    if (error.isBoom && error.output) {
+      statusCode = error.output.statusCode;
+      headers = error.output.headers;
+      body = error.output.payload;
+    } else {
+      body = {
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'Something went wrong'
+      };
     }
 
-    const body = { error: { message: message, statusCode: statusCode } };
-
-    return serialize(body).status(statusCode);
+    const res = serialize(body);
+    res.statusCode = statusCode;
+    for (const name of Object.keys(headers)) {
+      res.setHeader(name, headers[name]);
+    }
+    return res;
   }
 
   return errorHandler;

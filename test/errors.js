@@ -2,7 +2,7 @@
 
 const test = require('tape');
 const respond = require('quinn/respond');
-const HTTPError = require('node-http-error');
+const Boom = require('boom');
 
 const cass = require('../');
 
@@ -19,8 +19,8 @@ test('throw error', function(t) {
     t.equal(res.statusCode, 500, 'Returns 500');
     t.equal(res.getHeader('content-type'), 'application/json; charset=utf-8', 'is json');
     const body = JSON.parse(res.bodyString);
-    t.equal(body.error.message, 'Something went wrong'); // hides the actual error
-    t.equal(body.error.statusCode, 500);
+    t.equal(body.message, 'Something went wrong'); // hides the actual error
+    t.equal(body.statusCode, 500);
     t.end();
   }
 
@@ -32,15 +32,15 @@ test('throw web error', function(t) {
   t.plan(4);
 
   function throwError() {
-    throw new HTTPError(422, 'Invalid thing');
+    throw Boom.create(422, 'Invalid thing');
   }
 
   function verify(res) {
     t.equal(res.statusCode, 422, 'Returns 422');
     t.equal(res.getHeader('content-type'), 'application/json; charset=utf-8', 'is json');
     const body = JSON.parse(res.bodyString);
-    t.equal(body.error.message, 'Invalid thing');
-    t.equal(body.error.statusCode, 422);
+    t.equal(body.message, 'Invalid thing');
+    t.equal(body.statusCode, 422);
     t.end();
   }
 
