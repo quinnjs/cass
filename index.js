@@ -1,6 +1,7 @@
 'use strict';
 
 const json = require('quinn/respond').json;
+const createRouter = require('wegweiser');
 
 function ptry(f, self, args) {
   return new Promise(function(resolve) {
@@ -37,21 +38,19 @@ function createErrorHandler(serialize) {
   return errorHandler;
 }
 
-function cass(options, inner) {
-  if (inner === undefined) {
-    inner = options, options = {};
-  }
-  options = options || {};
-  const serialize = options.serialize || json;
-  const errorHandler = options.errorHandler || createErrorHandler(serialize);
+function cass() {
+  const serialize = json;
+  const errorHandler = createErrorHandler(json);
+
+  const router = createRouter.apply(null, arguments);
 
   function resolveResponse(res) {
     if (res === undefined) return;
-    return serialize(res);
+    return json(res);
   }
 
   function handler(req) {
-    return ptry(inner, this, arguments)
+    return ptry(router, this, arguments)
       .then(resolveResponse)
       .catch(errorHandler.bind(null, req));
   }
