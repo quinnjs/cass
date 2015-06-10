@@ -10,6 +10,7 @@ function readStream(s) {
 }
 
 function testQuinnHandler(handler, req) {
+  req = req || { method: 'GET', url: '/' };
   return new Promise(function (resolve, reject) {
     resolve(handler(req));
   }).then(function(res) {
