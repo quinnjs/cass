@@ -6,53 +6,37 @@ A convenience layer to build JSON APIs using
 [`Quinn`](https://github.com/quinnjs/quinn).
 
 ```js
-const cass = require('cass'),
-      // `boom` is whitelisted for providing status codes
-      Boom = require('boom');
-
-const handler = cass(req => {
-  if (req.method !== 'GET') throw Boom.create(405);
-
-  return {
-    my: {
-      response: { entity: true }
-    }
-  };
-});
-
-// handler can be passed into quinn's createApp
-```
-
-In combination with [`Wegweiser`](https://github.com/quinnjs/wegweiser):
-
-```js
 import { createServer } from 'http';
 
 import cass from 'cass';
-import { createRouter, GET, PUT } from 'wegweiser';
-import parsedBody from 'parsed-body';
-import { createApp } from 'quinn';
+import Boom from 'boom'; // `boom` is whitelisted for providing status codes
+import { Inject, Provides } from 'nilo';
+import { PUT } from 'wegweiser';
+import quinn from 'quinn';
 
-import db from './db'; // e.g. require('knex')(options)
+import RadioTuner from './tuner';
 
-const todos = db('todos');
+@Inject(RadioTuner)
+class RadioResource {
+  constructor(tuner) { this.tuner = tuner; }
 
-const routes = [
-  GET('/todos')(req => todos.select()),
-  GET('/todos/:id')((req, id) => todos.first().where({ id })),
-  PUT('/todos/:id')(async (req, id) => {
-    const { done } = await parsedBody(req);
-    if (0 === await todos.where({ id }).update({ done })) {
-      return; // item not found
+  @PUT('/radio/:station')
+  setStation(req, params) {
+    if (params.station.length > 10) {
+      throw new Boom(400, 'Invalid station, max length is 10');
     }
-    return todos.first().where({ id });
-  })
-];
+    this.tuner.tuneTo(params.station);
+    return { ok: true };
+  }
+}
 
-// routes -> router
-// router -> JSON responses
-// JSON responses -> node style request listener
-// node style request listener -> node http server
-createServer(createApp(cass(createRouter(routes))))
-  .listen(3000);
+const app = cass(RadioResource);
+app.graph.scan({ // "scan for dependency providers"
+  @Provides(RadioTuner)
+  getRadioTuner() {
+    return new RadioTuner(process.env.RADIO_FILE || '/dev/null');
+  }
+});
+
+createServer(quinn(app)).listen(3000);
 ```
