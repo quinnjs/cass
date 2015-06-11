@@ -50,11 +50,12 @@ function cass() {
     const resolved = router.resolve(req);
     if (resolved === undefined) { return Promise.resolve(); }
 
-    const contextScope = contextGraph.createScope(staticScope)
-      .set('request', req);
-
     const params = resolved.params,
           handler = resolved.handler;
+
+    const contextScope = contextGraph.createScope(staticScope)
+      .set('request', req)
+      .set('params', params);
 
     let resPromise;
     if (handler.ctor) {

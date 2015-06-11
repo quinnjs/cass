@@ -10,16 +10,20 @@ const cass = require('../');
 const testQuinnHandler = require('./test-quinn-handler');
 
 class EchoResource {
-  constructor(reqHeaders) {
+  constructor(params, reqHeaders) {
+    this.params = params;
     this.reqHeaders = reqHeaders;
   }
 
   sendDate() {
-    return this.reqHeaders;
+    return {
+      date: this.reqHeaders.date,
+      important: this.params.important === 'true'
+    };
   }
 }
-nilo.Inject('headers')(EchoResource);
-GET('/date')(EchoResource.prototype.sendDate);
+nilo.Inject('params', 'headers')(EchoResource);
+GET('/date/:important')(EchoResource.prototype.sendDate);
 
 test('Support resource classes with @Inject', function(t) {
   t.plan(3);
@@ -27,7 +31,7 @@ test('Support resource classes with @Inject', function(t) {
 
   function verify(res) {
     t.equal(res.statusCode, 200, 'Returns 200');
-    t.equal(res.bodyString, `{"Date":"${dateHeader}"}`, 'Correct body');
+    t.equal(res.bodyString, `{"date":"${dateHeader}","important":true}`, 'Correct body');
     t.equal(res.getHeader('content-type'), 'application/json; charset=utf-8', 'is json');
     t.end();
   }
@@ -40,7 +44,7 @@ test('Support resource classes with @Inject', function(t) {
   });
   testQuinnHandler(app, {
     method: 'GET',
-    url: '/date',
-    headers: { Date: dateHeader }
+    url: '/date/true',
+    headers: { date: dateHeader }
   }).then(verify, t.end);
 });
