@@ -2,12 +2,7 @@
 
 const json = require('quinn/respond').json;
 const createRouter = require('wegweiser');
-
-function ptry(f, self, args) {
-  return new Promise(function(resolve) {
-    resolve(f.apply(self, args));
-  });
-}
+const createGraph = require('nilo');
 
 function createErrorHandler(serialize) {
   function errorHandler(req, error) {
@@ -39,23 +34,50 @@ function createErrorHandler(serialize) {
 }
 
 function cass() {
-  const serialize = json;
-  const errorHandler = createErrorHandler(json);
-
   const router = createRouter.apply(null, arguments);
+  const graph = createGraph();
+  const contextGraph = createGraph();
+
+  const staticScope = graph.createScope();
+  const errorHandler = createErrorHandler(json);
 
   function resolveResponse(res) {
     if (res === undefined) return;
     return json(res);
   }
 
-  function handler(req) {
-    return ptry(router, this, arguments)
+  function app(req) {
+    const resolved = router.resolve(req);
+    if (resolved === undefined) { return Promise.resolve(); }
+
+    const params = resolved.params,
+          handler = resolved.handler;
+
+    const contextScope = contextGraph.createScope(staticScope)
+      .set('request', req)
+      .set('params', params);
+
+    let resPromise;
+    if (handler.ctor) {
+      resPromise = new Promise(function(resolve) {
+        const instance = contextScope.construct(handler.ctor);
+        return resolve(instance[handler.key](req, params));
+      });
+    } else {
+      resPromise = new Promise(function(resolve) {
+        return resolve(handler(req, params));
+      });
+    }
+
+    return resPromise
       .then(resolveResponse)
       .catch(errorHandler.bind(null, req));
   }
 
-  return handler;
+  app.graph = graph;
+  app.contextGraph = contextGraph;
+
+  return app;
 }
 
 module.exports = cass;
