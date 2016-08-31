@@ -60,6 +60,12 @@ describe('Cookies', () => {
       ], target.getHeader('Set-Cookie'));
     });
 
+    it('does not send an empty set-cookie header', () => {
+      const cookies = Cookies.fromRequest({});
+      const target = cookies.writeTo(new Response());
+      assert.equal(undefined, target.getHeader('Set-Cookie'));
+    });
+
     it('can defer setting the cookie headers', () => {
       const old = { existing: '10', foo: 'bar stuff', outdated: 'thing-to-delete' };
       const cookies = Cookies.fromRequest({ cookies: old }, { path: '/' });
