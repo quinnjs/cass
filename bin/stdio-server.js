@@ -1,15 +1,30 @@
 'use strict';
+const http = require('http');
+const Path = require('path');
+
 const respond = require('../lib/respond');
 
 function writeResponse({ statusCode, headers, body }) {
-  const headersObj = {};
-  for (const [name, value] of headers) {
-    headersObj[name] = value;
+  if (process.send) {
+    const headersObj = {};
+    for (const [name, value] of headers) {
+      headersObj[name] = value;
+    }
+    process.send({ type: 'quinnjs:response', statusCode, headers: headersObj });
+  } else {
+    console.error('HTTP/1.1 %j %s', statusCode, http.STATUS_CODES[statusCode]);
+    for (const [name, value] of headers) {
+      console.error('%s: %s', name, value);
+    }
+    console.error('');
   }
-  process.send({ type: 'quinnjs:response', statusCode, headers: headersObj });
 
   function sendEnd() {
-    process.send({ type: 'quinnjs:response-end' });
+    if (process.send) {
+      process.send({ type: 'quinnjs:response-end' });
+    } else {
+      process.exit(0);
+    }
   }
 
   if (!body) {
@@ -41,7 +56,7 @@ function throwAsync(e) {
 
 function handleFakeRequest() {
   const [,, handleModule, method, path, headersJSON] = process.argv;
-  const handle = require(handleModule);
+  const handle = require(Path.resolve(handleModule));
   const fakeRequest = { method, path, headers: JSON.parse(headersJSON) };
   return Promise.resolve(fakeRequest)
     .then(handle)

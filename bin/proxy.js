@@ -7,12 +7,12 @@ const PassThrough = require('stream').PassThrough;
 const quinn = require('../lib/quinn');
 const respond = require('../lib/respond');
 
-const FAKE_SERVER_PATH = require.resolve('./fake-server.js');
-const HANDLER_PATH = require.resolve(path.resolve(process.argv[2]));
+const STDIO_SERVER_PATH = require.resolve('./stdio-server.js');
+const HANDLER_PATH = process.argv[2];
 
 function handle(req) {
   return new Promise((resolve, reject) => {
-    const worker = childProcess.fork(FAKE_SERVER_PATH, [
+    const worker = childProcess.fork(STDIO_SERVER_PATH, [
       HANDLER_PATH,
       req.method,
       req.url,
