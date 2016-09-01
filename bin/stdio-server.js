@@ -1,6 +1,7 @@
 'use strict';
 const http = require('http');
 const Path = require('path');
+const PassThrough = require('stream').PassThrough;
 
 const respond = require('../lib/respond');
 
@@ -57,7 +58,12 @@ function throwAsync(e) {
 function handleFakeRequest() {
   const [,, handleModule, method, path, headersJSON] = process.argv;
   const handle = require(Path.resolve(handleModule));
-  const fakeRequest = { method, path, headers: JSON.parse(headersJSON) };
+  const fakeRequest = Object.assign(new PassThrough(), {
+    method,
+    path,
+    headers: JSON.parse(headersJSON),
+  });
+  process.stdin.pipe(fakeRequest);
   return Promise.resolve(fakeRequest)
     .then(handle)
     .then(writeResponse)
