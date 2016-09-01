@@ -2,7 +2,7 @@
 const assert = require('assertive');
 
 const Cookies = require('../lib/cookies');
-const Response = require('../lib/response');
+const Response = require('../lib/respond').Response;
 
 describe('Cookies', () => {
   it('is a class', () => {
