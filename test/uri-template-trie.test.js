@@ -4,20 +4,53 @@ const querystring = require('querystring');
 
 const parseURITemplate = require('../lib/parse-uri-template');
 
+const PATH_CHARS = '(?:[a-zA-Z0-9._~!$&\'()*+,;=:@-]|%[A-Fa-f0-9]{2})+';
+const PATH_SEGMENT = `\\/(${PATH_CHARS})`;
+const SPLAT_PATH_SEGMENTS = `((?:\\/${PATH_CHARS})+)`;
+const FREEFORM = `^(${PATH_CHARS})`;
+
+function parsePathSegment(segment, explode) {
+  if (!explode) return decodeURIComponent(segment);
+  return segment.substr(1).split('/')
+    .map(part => parsePathSegment(part, false));
+}
+
 const Matchers = {
+  ['<null>'](vars) {
+    if (vars.length !== 1) {
+      throw new Error('Freeform match only supports exactly one var');
+    }
+    const spec = vars[0];
+    if (spec.prefix || spec.explode) {
+      throw new Error('Modifiers not supported for freeform match');
+    }
+    return function resolve(uri) {
+      const m = uri.match(FREEFORM);
+      if (!m) return null;
+      return {
+        params: { [spec.name]: m[1] },
+        rest: uri.slice(m[0].length),
+      };
+    };
+  },
+
   ['/'](vars) {
     const varPatterns = vars.map(spec => {
-      if (spec.explode || spec.prefix) {
-        throw new Error(`Extensions not supported: ${JSON.stringify(spec)}`);
+      if (spec.prefix) {
+        throw new Error(`Prefix not supported: ${JSON.stringify(spec)}`);
       }
-      return '\\/((?:[a-zA-Z0-9._~!$&\'()*+,;=:@-]|%[A-Fa-f0-9]{2})+)';
+      if (spec.explode) {
+        return SPLAT_PATH_SEGMENTS;
+      }
+      return PATH_SEGMENT;
     });
     const pattern = new RegExp(`^${varPatterns.join('')}`);
     return function resolve(uri) {
+      if (uri[0] !== '/') return null;
       const m = uri.match(pattern);
       if (!m) return null;
       const params = vars.reduce((bindings, spec, idx) => {
-        bindings[spec.name] = m[idx + 1];
+        bindings[spec.name] = parsePathSegment(m[idx + 1], spec.explode);
         return bindings;
       }, {});
       return { rest: uri.slice(m[0].length), params };
@@ -25,10 +58,15 @@ const Matchers = {
   },
 
   ['?'](vars) {
+    let splatVarName;
+    const nonSplat = vars.filter(spec => {
+      if (spec.explode) splatVarName = spec.name;
+      return !spec.explode;
+    });
     return function resolve(uri) {
       if (uri[0] !== '?') return null;
       const query = querystring.parse(uri.slice(1));
-      const params = vars.reduce((bindings, spec) => {
+      const params = nonSplat.reduce((bindings, spec) => {
         const value = query[spec.name];
         // TODO: some notion of "required"..?
         if (value === undefined) return bindings;
@@ -37,6 +75,10 @@ const Matchers = {
         bindings[spec.name] = value;
         return bindings;
       }, {});
+      if (splatVarName) {
+        params[splatVarName] = query;
+        return { params, rest: '' };
+      }
       const queryRest = querystring.stringify(query);
       return { params, rest: queryRest ? `&${queryRest}` : '' };
     };
@@ -44,27 +86,43 @@ const Matchers = {
 };
 
 function createMatcher(operator, vars) {
-  const factory = Matchers[operator];
+  const factory = Matchers[operator === null ? '<null>' : operator];
   if (!factory) {
     throw new Error(`Operator ${operator} is not supported`);
   }
   return factory(vars);
 }
 
+// TODO: Actually build a proper trie with lookups instead of "startsWith".
+// At the very least it should split by '/', '?', and '&'.
 class TrieNode {
   constructor(value) {
     this._value = value;
     this._literals = new Map();
-    this._vars = [];
+    this._vars = new Map();
   }
 
   get value() { return this._value; }
 
   _insertLiteral(literal, remaining, value) {
+    // TODO: Expand '/foo/bar' into ['/foo', '/bar']
     if (!this._literals.has(literal)) {
       this._literals.set(literal, new TrieNode());
     }
     this._literals.get(literal).insert(remaining, value);
+  }
+
+  _insertExpression(expr, remaining, value) {
+    // TODO: Expand '{/foo,bar}' into '{/foo}', '{/bar}'
+    let varMatcher;
+    if (!this._vars.has(expr.source)) {
+      varMatcher = createMatcher(expr.operator, expr.vars);
+      varMatcher.node = new TrieNode();
+      this._vars.set(expr.source, varMatcher);
+    } else {
+      varMatcher = this._vars.get(expr.source);
+    }
+    varMatcher.node.insert(remaining, value);
   }
 
   insert(parts, value) {
@@ -77,11 +135,7 @@ class TrieNode {
     if (next.type === 'literal') {
       this._insertLiteral(next.value, parts.slice(1), value);
     } else if (next.type === 'expr') {
-      const matcher = createMatcher(next.operator, next.vars);
-      // TODO: find existing pattern..?
-      const node = matcher.node = new TrieNode();
-      this._vars.push(matcher);
-      node.insert(parts.slice(1), value);
+      this._insertExpression(next, parts.slice(1), value);
     } else {
       throw new Error(`Unknown template part ${next.type}`);
     }
@@ -98,23 +152,24 @@ class TrieNode {
       if (directResult) return directResult;
     }
 
-    // TODO: prefer longest literal
     for (const literal of this._literals.keys()) {
       if (uri.indexOf(literal) !== 0) continue;
       const literalResult = this._literals.get(literal).find(uri.slice(literal.length), params);
       if (literalResult) return literalResult;
     }
 
-    for (const varSpec of this._vars) {
-      const varMatch = varSpec(uri);
+    for (const varMatcher of this._vars.values()) {
+      const varMatch = varMatcher(uri);
       if (varMatch === null) continue;
       // TODO: check for name collisions
       const varBindings = Object.assign({}, params, varMatch.params);
-      const varSpecResult = varSpec.node.find(varMatch.rest, varBindings);
+      const varSpecResult = varMatcher.node.find(varMatch.rest, varBindings);
       if (varSpecResult) return varSpecResult;
     }
 
-    // TODO: ignore additional query args & potentially score the result (?)
+    if (uri[0] === '&' || uri[0] === '?') {
+      return this._value !== undefined ? { value: this._value, params } : null;
+    }
     return null;
   }
 }
@@ -143,15 +198,26 @@ describe('uri template tree', () => {
     trie.insert('/', 'root-value');
     trie.insert('/static', 'static-value');
     trie.insert('{/id}', 'id-value');
-    trie.insert('/users{/id}{?show}', 'show-value');
+    trie.insert('/users{/id}', 'just-user-id-value');
+    trie.insert('/users{/id}{?show,query*}', 'user-id-value');
+    trie.insert('/stuff{?show}', 'stuff-value');
+    // TODO: Treat this as /posts{/year}{/month}{/slug}
     trie.insert('/posts{/year,month,slug}', 'blog-value');
+    trie.insert('/users{/id}{/more*}', 'splat-value');
+    trie.insert('/~{user}{/more*}', 'home-value');
 
     [
       '/',
       '/static',
       '/some-id',
-      '/users/robin?show=full',
-      '/posts/2016/07/my-post',
+      '/users/robin',
+      '/users/robin?show=full&some=more&qs=stuff',
+      '/stuff?show=id,name',
+      '/posts/2016/07/my%20post',
+      '/users/robin/one',
+      '/users/robin/one/and/two/and/three',
+      '/totally/a/404',
+      '/~robin/projects/quinn',
     ].forEach(uri => {
       const result = trie.find(uri);
       console.log(uri, result);
