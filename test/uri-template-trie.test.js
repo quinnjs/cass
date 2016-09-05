@@ -47,7 +47,7 @@ const Matchers = {
       const m = uri.match(FREEFORM);
       if (!m) return null;
       return {
-        params: { [spec.name]: m[1] },
+        params: { [spec.name]: decodeURIComponent(m[1]) },
         rest: uri.slice(m[0].length),
       };
     };
@@ -287,6 +287,10 @@ describe('uri template trie', () => {
       ['/~robin/projects/quinn', {
         value: 'home-value',
         params: { user: 'robin', more: ['projects', 'quinn'] },
+      }],
+      ['/~hello%20world/projects/quinn', {
+        value: 'home-value',
+        params: { user: 'hello world', more: ['projects', 'quinn'] },
       }],
     ]).forEach((expected, uri) => {
       it(`routes ${uri}`, () => {
