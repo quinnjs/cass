@@ -112,8 +112,13 @@ function createMatcher(operator, vars) {
   return factory(vars);
 }
 
-// TODO: Actually build a proper trie with lookups instead of "startsWith".
-// At the very least it should split by '/', '?', and '&'.
+function getNextSegment(uri) {
+  if (uri[0] !== '/') return null;
+  const nextSlash = uri.indexOf('/', 1);
+  if (nextSlash !== -1) return uri.slice(0, nextSlash);
+  return uri;
+}
+
 class TrieNode {
   constructor(value) {
     this._value = value;
@@ -124,7 +129,6 @@ class TrieNode {
   get value() { return this._value; }
 
   _insertLiteral(literal, remaining, value) {
-    // TODO: Expand '/foo/bar' into ['/foo', '/bar']
     if (!this._literals.has(literal)) {
       this._literals.set(literal, new TrieNode());
     }
@@ -132,7 +136,6 @@ class TrieNode {
   }
 
   _insertExpression(expr, remaining, value) {
-    // TODO: Expand '{/foo,bar}' into '{/foo}', '{/bar}'
     let varMatcher;
     if (!this._vars.has(expr.source)) {
       varMatcher = createMatcher(expr.operator, expr.vars);
@@ -165,14 +168,15 @@ class TrieNode {
       return this._value !== undefined ? { value: this._value, params } : null;
     }
 
-    const directMatch = this._literals.get(uri);
+    const nextSegment = getNextSegment(uri);
+    const directMatch = nextSegment && this._literals.get(nextSegment);
     if (directMatch) {
-      const directResult = directMatch.find('', params);
+      const directResult = directMatch.find(uri.slice(nextSegment.length), params);
       if (directResult) return directResult;
     }
 
     for (const literal of this._literals.keys()) {
-      if (uri.indexOf(literal) !== 0) continue;
+      if (!uri.startsWith(literal)) continue;
       const literalResult = this._literals.get(literal).find(uri.slice(literal.length), params);
       if (literalResult) return literalResult;
     }
@@ -193,13 +197,38 @@ class TrieNode {
   }
 }
 
+function splitLiteralBySegments(part) {
+  const value = part.value;
+  if (value[0] !== '/' || value.indexOf('/', 1) === -1) return part;
+  const segments = value.slice(1).split('/');
+  return segments.map(segment => ({ type: 'literal', value: `/${segment}` }));
+}
+
+function splitMultiPathExpr(part) {
+  const vars = part.vars;
+  if (vars.length < 2) return part;
+  return vars.map(spec => ({ type: 'expr', operator: '/', vars: [spec] }));
+}
+
+function splitBySegments(parts) {
+  const segmentized = parts.map(part => {
+    if (part.type === 'literal') {
+      return splitLiteralBySegments(part);
+    } else if (part.type === 'expr' && part.operator === '/') {
+      return splitMultiPathExpr(part);
+    }
+    return part;
+  });
+  return [].concat(...segmentized);
+}
+
 class URITemplateTrie {
   constructor() {
     this._root = new TrieNode(undefined);
   }
 
   insert(template, value) {
-    const parts = parseURITemplate(template);
+    const parts = splitBySegments(parseURITemplate(template));
     this._root.insert(parts, value);
   }
 
@@ -218,6 +247,7 @@ describe('uri template trie', () => {
     before(() => {
       trie.insert('/', 'root-value');
       trie.insert('/static', 'static-value');
+      trie.insert('/api/v1/endpoint', 'nested-value');
       trie.insert('{/id}', 'id-value');
       trie.insert('/users{/id}', 'just-user-id-value');
       trie.insert('/users{/id}{?show,query*}', 'user-id-value');
@@ -226,12 +256,14 @@ describe('uri template trie', () => {
       trie.insert('/comma{/parts[]}', 'comma-path-value');
       trie.insert('/posts{/year,month,slug}', 'blog-value');
       trie.insert('/users{/id}{/more*}', 'splat-value');
+      trie.insert('/users{/id}/exact', 'exact-value');
       trie.insert('/~{user}{/more*}', 'home-value');
     });
 
     new Map([
       ['/', { value: 'root-value', params: {} }],
       ['/static', { value: 'static-value', params: {} }],
+      ['/api/v1/endpoint', { value: 'nested-value', params: {} }],
       ['/some-id', { value: 'id-value', params: { id: 'some-id' } }],
       ['/users/robin', { value: 'just-user-id-value', params: { id: 'robin' } }],
       ['/users/robin?show=full&some=more&extra=stuff', {
@@ -250,6 +282,7 @@ describe('uri template trie', () => {
         value: 'splat-value',
         params: { id: 'robin', more: ['one', 'and', 'two', 'and', 'three'] },
       }],
+      ['/users/robin/exact', { value: 'exact-value', params: { id: 'robin' } }],
       ['/totally/a/404', null],
       ['/~robin/projects/quinn', {
         value: 'home-value',
