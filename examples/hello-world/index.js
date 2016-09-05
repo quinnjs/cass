@@ -8,12 +8,12 @@ async function handle(req) {
   const cookies = Cookies.fromRequest(req, { path: '/' });
   cookies.set('out', cookies.get('in') || 'zapp');
 
-  const body = await parseBody(req);
+  const body = req.method === 'POST' ? await parseBody(req) : undefined;
 
   // throw new Error('huh?');
 
   return cookies.writeTo(
-    respond.json({ message: 'Hello World!', body: body || undefined })
+    respond.json({ message: 'Hello World!', body })
   );
 }
 module.exports = handle;
