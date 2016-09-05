@@ -9,10 +9,29 @@ const PATH_SEGMENT = `\\/(${PATH_CHARS})`;
 const SPLAT_PATH_SEGMENTS = `((?:\\/${PATH_CHARS})+)`;
 const FREEFORM = `^(${PATH_CHARS})`;
 
-function parsePathSegment(segment, explode) {
-  if (!explode) return decodeURIComponent(segment);
-  return segment.substr(1).split('/')
-    .map(part => parsePathSegment(part, false));
+function parsePathSegmentSimple(segment) {
+  return decodeURIComponent(segment);
+}
+
+function parsePathSegment(segment, explode, list) {
+  if (explode && list) {
+    throw new Error('Cannot splat & split the same path segment');
+  }
+
+  if (list) {
+    return segment.split(',').map(parsePathSegmentSimple);
+  }
+  if (explode) {
+    return segment.substr(1).split('/').map(parsePathSegmentSimple);
+  }
+  return decodeURIComponent(segment);
+}
+
+function parseQueryValue(value, list) {
+  if (list) {
+    return Array.isArray(value) ? value : value.split(',');
+  }
+  return Array.isArray(value) ? value[value.length - 1] : value;
 }
 
 const Matchers = {
@@ -50,7 +69,7 @@ const Matchers = {
       const m = uri.match(pattern);
       if (!m) return null;
       const params = vars.reduce((bindings, spec, idx) => {
-        bindings[spec.name] = parsePathSegment(m[idx + 1], spec.explode);
+        bindings[spec.name] = parsePathSegment(m[idx + 1], spec.explode, spec.list);
         return bindings;
       }, {});
       return { rest: uri.slice(m[0].length), params };
@@ -72,7 +91,7 @@ const Matchers = {
         if (value === undefined) return bindings;
         delete query[spec.name];
 
-        bindings[spec.name] = value;
+        bindings[spec.name] = parseQueryValue(value, spec.list);
         return bindings;
       }, {});
       if (splatVarName) {
@@ -203,6 +222,8 @@ describe('uri template trie', () => {
       trie.insert('/users{/id}', 'just-user-id-value');
       trie.insert('/users{/id}{?show,query*}', 'user-id-value');
       trie.insert('/stuff{?show}', 'stuff-value');
+      trie.insert('/comma-query{?show[]}', 'comma-value');
+      trie.insert('/comma{/parts[]}', 'comma-path-value');
       trie.insert('/posts{/year,month,slug}', 'blog-value');
       trie.insert('/users{/id}{/more*}', 'splat-value');
       trie.insert('/~{user}{/more*}', 'home-value');
@@ -218,6 +239,8 @@ describe('uri template trie', () => {
         params: { id: 'robin', show: 'full', query: { some: 'more', extra: 'stuff' } },
       }],
       ['/stuff?show=id,name', { value: 'stuff-value', params: { show: 'id,name' } }],
+      ['/comma-query?show=id,name', { value: 'comma-value', params: { show: ['id', 'name'] } }],
+      ['/comma/foo,bar,z', { value: 'comma-path-value', params: { parts: ['foo', 'bar', 'z'] } }],
       ['/posts/2016/07/my%20post', {
         value: 'blog-value',
         params: { year: '2016', month: '07', slug: 'my post' },
