@@ -33,7 +33,8 @@
     "eslint-config-groupon-node4": "^3.0.0",
     "eslint-plugin-import": "^1.6.1",
     "mocha": "^2.0.0",
-    "nlm": "^2.0.0"
+    "nlm": "^2.0.0",
+    "parsed-body": "^1.0.0"
   },
   "author": {
     "name": "Jan Krems",

@@ -1,15 +1,8 @@
 'use strict';
+const parseBody = require('parsed-body/json');
+
 const Cookies = require('../../lib/cookies');
 const respond = require('../../lib/respond');
-
-function parseBody(req) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('error', reject);
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => resolve(Buffer.concat(chunks).toString()));
-  });
-}
 
 async function handle(req) {
   const cookies = Cookies.fromRequest(req, { path: '/' });
