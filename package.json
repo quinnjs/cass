@@ -13,7 +13,7 @@
     "url": "https://github.com/quinnjs/cass/issues"
   },
   "scripts": {
-    "test": "mocha",
+    "test": "node --harmony-async-await node_modules/.bin/_mocha",
     "posttest": "nlm verify"
   },
   "nlm": {
