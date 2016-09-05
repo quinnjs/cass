@@ -29,7 +29,8 @@
   "devDependencies": {
     "assertive": "^2.0.0",
     "eslint": "^2.0.0",
-    "eslint-config-groupon-es5": "^3.0.0",
+    "eslint-config-groupon": "^3.1.0",
+    "eslint-config-groupon-node4": "^3.0.0",
     "eslint-plugin-import": "^1.6.1",
     "mocha": "^2.0.0",
     "nlm": "^2.0.0"

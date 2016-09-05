@@ -19,12 +19,8 @@ async function handle(req) {
 
   // throw new Error('huh?');
 
-  return cookies.writeTo(respond({
-    statusCode: 200,
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ message: 'Hello World!', body: body || undefined }),
-  }));
+  return cookies.writeTo(
+    respond.json({ message: 'Hello World!', body: body || undefined })
+  );
 }
 module.exports = handle;

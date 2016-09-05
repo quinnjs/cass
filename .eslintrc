@@ -1,3 +1,6 @@
 {
-  "extends": "groupon-es5"
+  "extends": "groupon",
+  "parserOptions": {
+    "sourceType": "script"
+  }
 }
