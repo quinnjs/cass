@@ -14,23 +14,13 @@ function parsePathSegmentSimple(segment) {
 }
 
 function parsePathSegment(segment, explode, list) {
-  if (explode && list) {
-    throw new Error('Cannot splat & split the same path segment');
-  }
-
-  if (list) {
-    return segment.split(',').map(parsePathSegmentSimple);
-  }
-  if (explode) {
-    return segment.substr(1).split('/').map(parsePathSegmentSimple);
-  }
+  if (explode) return segment.substr(1).split('/').map(parsePathSegmentSimple);
+  if (list) return segment.split(',').map(parsePathSegmentSimple);
   return decodeURIComponent(segment);
 }
 
 function parseQueryValue(value, list) {
-  if (list) {
-    return Array.isArray(value) ? value : value.split(',');
-  }
+  if (list) return Array.isArray(value) ? value : value.split(',');
   return Array.isArray(value) ? value[value.length - 1] : value;
 }
 
@@ -58,10 +48,7 @@ const Matchers = {
       if (spec.prefix) {
         throw new Error(`Prefix not supported: ${JSON.stringify(spec)}`);
       }
-      if (spec.explode) {
-        return SPLAT_PATH_SEGMENTS;
-      }
-      return PATH_SEGMENT;
+      return spec.explode ? SPLAT_PATH_SEGMENTS : PATH_SEGMENT;
     });
     const pattern = new RegExp(`^${varPatterns.join('')}`);
     return function resolve(uri) {
@@ -125,8 +112,6 @@ class TrieNode {
     this._literals = new Map();
     this._vars = new Map();
   }
-
-  get value() { return this._value; }
 
   _insertLiteral(literal, remaining, value) {
     if (!this._literals.has(literal)) {
