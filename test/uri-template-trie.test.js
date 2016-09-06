@@ -33,8 +33,11 @@ describe('uri template trie', () => {
         value: 'user-id-value',
         params: { id: 'robin', show: 'full', query: { some: 'more', extra: 'stuff' } },
       }],
+      ['/stuff', { value: 'stuff-value', params: {} }],
       ['/stuff?show=id,name', { value: 'stuff-value', params: { show: 'id,name' } }],
       ['/comma-query?show=id,name', { value: 'comma-value', params: { show: ['id', 'name'] } }],
+      ['/comma-query?show=', { value: 'comma-value', params: { show: [] } }],
+      ['/comma-query', { value: 'comma-value', params: {} }],
       ['/comma/foo,bar,z', { value: 'comma-path-value', params: { parts: ['foo', 'bar', 'z'] } }],
       ['/posts/2016/07/my%20post', {
         value: 'blog-value',
